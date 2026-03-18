@@ -1,11 +1,862 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Badminton Analysis</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LG Badminton — Season Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c0c0e;--bg2:#111115;--bg3:#17171d;--bg4:#1d1d25;--bg5:#22222c;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);--border3:rgba(255,255,255,0.17);
+  --text:#eeeae4;--text2:#9c9991;--text3:#56544f;
+  --green:#4ade80;--green-bg:rgba(74,222,128,0.1);--green-text:#86efac;--green-border:rgba(74,222,128,0.2);
+  --red:#f87171;--red-bg:rgba(248,113,113,0.1);--red-text:#fca5a5;--red-border:rgba(248,113,113,0.2);
+  --yellow:#facc15;--yellow-bg:rgba(250,204,21,0.08);--yellow-text:#fde047;--yellow-border:rgba(250,204,21,0.2);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);--blue-text:#93c5fd;--blue-border:rgba(96,165,250,0.2);
+  --accent:#c8f135;
+  --r:10px;--rs:6px;
+}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── HEADER ── */
+.header{background:var(--bg2);border-bottom:1px solid var(--border2);padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.header-brand{display:flex;align-items:center;gap:14px}
+.brand-badge{background:var(--accent);color:#000;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:3px}
+.brand-title{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.brand-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.match-pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{background:var(--bg4);border:1px solid var(--border2);border-radius:16px;padding:5px 12px;font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.pill b{color:var(--accent);font-weight:500}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 36px}
+.tab{padding:12px 18px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;user-select:none}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+
+/* ── LAYOUT ── */
+.page{display:none;padding:28px 36px 48px;max-width:1200px;margin:0 auto}
+.page.active{display:block}
+.sl{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:2rem 0 .8rem}
+.sl:first-child{margin-top:0}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px}
+
+/* ── METRIC CARDS ── */
+.mc{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden}
+.mc::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.35}
+.mc-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-weight:600;margin-bottom:6px}
+.mc-val{font-size:26px;font-weight:600;letter-spacing:-.02em;font-family:'DM Mono',monospace;color:var(--text);line-height:1}
+.mc-sub{font-size:11px;color:var(--text3);margin-top:5px}
+
+/* ── TAGS ── */
+.tag{display:inline-block;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;font-family:'DM Mono',monospace;letter-spacing:.02em;white-space:nowrap}
+.tw{background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)}
+.tl{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
+.tm{background:var(--yellow-bg);color:var(--yellow-text);border:1px solid var(--yellow-border)}
+.ti{background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border)}
+
+/* ── CHART WRAP ── */
+.cw{position:relative;width:100%}
+
+/* ── EVENT ROWS ── */
+.er{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.er:last-child{border-bottom:none}
+.ern{flex:1;color:var(--text);font-weight:400}
+.bar-bg{flex:1;max-width:72px;background:var(--bg5);border-radius:3px;height:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.wp{width:32px;text-align:right;font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+
+/* ── TREND DOTS ── */
+.tr{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.tr:last-child{border-bottom:none}
+.trn{flex:1;color:var(--text)}
+.dots{display:flex;gap:5px}
+.dot{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'DM Mono',monospace}
+.dw{background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)}
+.dl{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
+.mv{width:44px;text-align:right;font-size:11px;font-family:'DM Mono',monospace}
+.mp{color:var(--green-text)}
+.mn{color:var(--red-text)}
+.mz{color:var(--text3)}
+
+/* ── ATTENTION BADGES ── */
+.ab{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);margin-bottom:6px;border:1px solid transparent}
+.ab:last-child{margin-bottom:0}
+.ab-r{background:var(--red-bg);border-color:var(--red-border)}
+.ab-g{background:var(--green-bg);border-color:var(--green-border)}
+.ab-y{background:var(--yellow-bg);border-color:var(--yellow-border)}
+.ab-text{flex:1;font-size:12px;font-weight:500;color:var(--text)}
+.ab-sub{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;white-space:nowrap}
+
+/* ── CLOSE MATCHES ── */
+.cm{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.cm:last-child{border-bottom:none}
+.cm-name{flex:1;color:var(--text)}
+.cm-score{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MATCH BREAKDOWN ── */
+.mb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:12px;color:var(--text2)}
+.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.sc{background:var(--bg3);border-radius:var(--rs);padding:7px 9px}
+.sc-l{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;margin-bottom:2px}
+.sc-v{font-size:11px;color:var(--text);font-weight:500;font-family:'DM Mono',monospace}
+
+/* ── ACCORDION (Tactical) ── */
+.acc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:8px}
+.acc-card:last-child{margin-bottom:0}
+.acc-hdr{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;user-select:none;transition:background .12s}
+.acc-hdr:hover{background:var(--bg3)}
+.chev{font-size:10px;color:var(--text3);transition:transform .2s;width:14px;flex-shrink:0}
+.chev.open{transform:rotate(90deg)}
+.acc-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.acc-body{display:none;padding:16px 18px;border-top:1px solid var(--border)}
+.acc-body.open{display:block}
+
+.cg3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.cp{background:var(--bg3);border-radius:var(--rs);padding:9px 11px}
+.cp-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
+.cp-v{font-size:12px;color:var(--text);line-height:1.4}
+
+.sc-ctx{background:var(--bg4);border-radius:var(--rs);padding:10px 13px;margin-bottom:13px;font-size:12px;color:var(--text2);line-height:1.6}
+.sc-ctx strong{color:var(--text);font-weight:500}
+
+.diag{margin-bottom:12px}
+.dl-r{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--red-text);margin-bottom:7px}
+.dl-y{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--yellow-text);margin-bottom:7px}
+.dl-g{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green-text);margin-bottom:7px}
+.dl-b{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue-text);margin-bottom:7px}
+
+.finding{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);line-height:1.55}
+.finding:last-child{border-bottom:none}
+.fi{width:5px;height:5px;border-radius:50%;background:var(--text3);flex-shrink:0;margin-top:6px}
+.finding strong{color:var(--text);font-weight:500}
+
+.fix{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:12px;color:var(--text2);line-height:1.5}
+.fix-n{width:18px;height:18px;border-radius:3px;background:var(--blue-bg);color:var(--blue-text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px;border:1px solid var(--blue-border)}
+.fix strong{color:var(--text);font-weight:500}
+
+.urg{height:2px;border-radius:2px;margin-top:12px}
+.urg1{background:var(--green-bg);border:1px solid var(--green-border)}
+.urg2{background:var(--yellow-bg);border:1px solid var(--yellow-border)}
+.urg3{background:var(--red-bg);border:1px solid var(--red-border)}
+.urg-l{font-size:10px;color:var(--text3);margin-top:4px}
+
+/* ── CHANGES TAB ── */
+.change-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.change-card:last-child{margin-bottom:0}
+.ch-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.ch-pri{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.pri-1{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
+.pri-2{background:var(--yellow-bg);color:var(--yellow-text);border:1px solid var(--yellow-border)}
+.pri-3{background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)}
+.ch-title{flex:1;font-size:14px;font-weight:500;color:var(--text)}
+.ch-team{font-size:11px;padding:2px 8px;border-radius:3px;font-family:'DM Mono',monospace}
+.ch-body{padding:16px 18px}
+.ch-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);line-height:1.55}
+.ch-row:last-child{border-bottom:none}
+.ch-row .fi{margin-top:6px}
+.ch-row strong{color:var(--text);font-weight:500}
+
+.insight-row{padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);line-height:1.6}
+.insight-row:last-child{border-bottom:none}
+.insight-row strong{color:var(--text);font-weight:500}
+
+.divider{border:none;border-top:1px solid var(--border);margin:1.5rem 0}
+
+.legend{display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text2)}
+.legend span{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:2px}
+
+.hdr-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.hdr-row .trn{font-size:10px}
+
+.foot{margin-top:2rem;padding-top:1.25rem;border-top:1px solid var(--border);font-size:11px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+
+/* ── SCORE CARD IN MATCH BREAKDOWN ── */
+.sc-total{background:var(--bg4)}
+
+@media(max-width:700px){
+  .header,.tabs,.page{padding-left:16px;padding-right:16px}
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .g3,.g2{grid-template-columns:1fr}
+  .match-pills{display:none}
+}
+</style>
 </head>
 <body>
 
+<div class="header">
+  <div class="header-brand">
+    <div>
+      <div class="brand-badge">2026 Season</div>
+      <div class="brand-title" style="margin-top:6px">Los Gatos Badminton</div>
+      <div class="brand-sub">3 matches played &nbsp;·&nbsp; Through 03/17/2026</div>
+    </div>
+  </div>
+  <div class="match-pills">
+    <div class="pill">Varsity: M1 LA <b>W</b> · M2 Fremont <b>W</b> · M3 MV <b>W</b></div>
+    <div class="pill">JV: M1 Fremont <b style="color:#f87171">L</b> · M2 LA <b style="color:#facc15">T</b> · M3 MV <b style="color:#f87171">L</b></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('varsity')">Varsity</div>
+  <div class="tab" onclick="showTab('jv')">JV</div>
+  <div class="tab" onclick="showTab('changes')">Recommended Changes</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!--  VARSITY TAB                                          -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div id="tab-varsity" class="page active">
+
+  <div class="sl">Season Overview</div>
+  <div class="g4">
+    <div class="mc"><div class="mc-label">Matches</div><div class="mc-val">3–0</div><div class="mc-sub">100% match win rate</div></div>
+    <div class="mc"><div class="mc-label">Event Win Rate</div><div class="mc-val">66.7%</div><div class="mc-sub">30 of 45 events</div></div>
+    <div class="mc"><div class="mc-label">Avg Match Score</div><div class="mc-val">18.7</div><div class="mc-sub">vs 11.3 opponent avg</div></div>
+    <div class="mc"><div class="mc-label">Decider Matches</div><div class="mc-val">9</div><div class="mc-sub">6W · 3L in 3-game battles</div></div>
+  </div>
+
+  <div class="sl">Win Rate by Category</div>
+  <div class="g2">
+    <div class="card">
+      <div class="legend">
+        <span><span class="ld" style="background:#4ade80"></span>Wins</span>
+        <span><span class="ld" style="background:#f87171"></span>Losses</span>
+      </div>
+      <div class="cw" style="height:180px"><canvas id="vCatChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:600">Avg Point Margin by Category</div>
+      <div class="cw" style="height:180px"><canvas id="vMarginChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="sl">Event-by-Event Win Rate</div>
+  <div class="g2">
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Singles</div>
+      <div class="er"><div class="ern">Boys Singles 1</div><div class="bar-bg"><div class="bar-fill" style="width:0%;background:#f87171"></div></div><div class="wp">0%</div><span class="tag tl">0–3</span></div>
+      <div class="er"><div class="ern">Boys Singles 2</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–3</span></div>
+      <div class="er"><div class="ern">Boys Singles 3</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–3</span></div>
+      <div class="er"><div class="ern">Girls Singles 1</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–3</span></div>
+      <div class="er"><div class="ern">Girls Singles 2</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–3</span></div>
+      <div class="er"><div class="ern">Girls Singles 3</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–3</span></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Doubles &amp; Mixed</div>
+      <div class="er"><div class="ern">Boys Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–3</span></div>
+      <div class="er"><div class="ern">Boys Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Boys Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Girls Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Girls Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–3</span></div>
+      <div class="er"><div class="ern">Girls Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–3</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+    </div>
+  </div>
+
+  <div class="sl">Match-by-Match Trend</div>
+  <div class="card">
+    <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">M1=Los Altos &nbsp;·&nbsp; M2=Fremont &nbsp;·&nbsp; M3=Mtn View &nbsp;·&nbsp; Δ = avg point margin per game</div>
+    <div class="hdr-row"><div class="trn">Event</div><div class="dots" style="gap:16px"><span style="width:22px;text-align:center">M1</span><span style="width:22px;text-align:center">M2</span><span style="width:22px;text-align:center">M3</span></div><div class="mv">avg Δ</div></div>
+    <div class="tr"><div class="trn">Boys Singles 1</div><div class="dots"><span class="dot dl">L</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv mn">–9.8</div></div>
+    <div class="tr"><div class="trn">Boys Singles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dl">L</span></div><div class="mv mn">–1.8</div></div>
+    <div class="tr"><div class="trn">Boys Singles 3</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dl">L</span></div><div class="mv mp">+2.3</div></div>
+    <div class="tr"><div class="trn">Girls Singles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv mn">–3.6</div></div>
+    <div class="tr"><div class="trn">Girls Singles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dl">L</span><span class="dot dw">W</span></div><div class="mv mn">–4.2</div></div>
+    <div class="tr"><div class="trn">Girls Singles 3</div><div class="dots"><span class="dot dl">L</span><span class="dot dl">L</span><span class="dot dw">W</span></div><div class="mv mz">–0.1</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dl">L</span><span class="dot dw">W</span></div><div class="mv mp">+1.3</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 2</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+4.2</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 3</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+3.9</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+3.9</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+5.1</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 3</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+8.3</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dl">L</span></div><div class="mv mp">+5.0</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 2</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+10.0</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 3</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv mp">+8.8</div></div>
+  </div>
+
+  <div class="sl">Per-Match Breakdown &amp; Close Matches</div>
+  <div class="g2">
+    <div>
+      <div class="g3" style="margin-bottom:12px">
+        <div class="card"><div class="mb-header"><span>M1 — Los Altos</span><span class="tag tw">W 20–10</span></div><div class="sc-grid"><div class="sc"><div class="sc-l">BS</div><div class="sc-v">1W·2L</div></div><div class="sc"><div class="sc-l">GS</div><div class="sc-v">1W·2L</div></div><div class="sc"><div class="sc-l">BD</div><div class="sc-v">3W·0L</div></div><div class="sc"><div class="sc-l">GD</div><div class="sc-v">2W·1L</div></div><div class="sc"><div class="sc-l">XD</div><div class="sc-v">3W·0L</div></div><div class="sc sc-total"><div class="sc-l">Total</div><div class="sc-v">10W·5L</div></div></div></div>
+        <div class="card"><div class="mb-header"><span>M2 — Fremont</span><span class="tag tw">W 18–12</span></div><div class="sc-grid"><div class="sc"><div class="sc-l">BS</div><div class="sc-v">2W·1L</div></div><div class="sc"><div class="sc-l">GS</div><div class="sc-v">0W·3L</div></div><div class="sc"><div class="sc-l">BD</div><div class="sc-v">2W·1L</div></div><div class="sc"><div class="sc-l">GD</div><div class="sc-v">3W·0L</div></div><div class="sc"><div class="sc-l">XD</div><div class="sc-v">3W·0L</div></div><div class="sc sc-total"><div class="sc-l">Total</div><div class="sc-v">10W·5L</div></div></div></div>
+        <div class="card"><div class="mb-header"><span>M3 — Mtn View</span><span class="tag tw">W 18–12</span></div><div class="sc-grid"><div class="sc"><div class="sc-l">BS</div><div class="sc-v">0W·3L</div></div><div class="sc"><div class="sc-l">GS</div><div class="sc-v">2W·1L</div></div><div class="sc"><div class="sc-l">BD</div><div class="sc-v">3W·0L</div></div><div class="sc"><div class="sc-l">GD</div><div class="sc-v">3W·0L</div></div><div class="sc"><div class="sc-l">XD</div><div class="sc-v">2W·1L</div></div><div class="sc sc-total"><div class="sc-l">Total</div><div class="sc-v">10W·5L</div></div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">3-Game Deciders</div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Boys Doubles 2 — M1</div><div class="cm-score">14-21, 21-18, 21-14</div></div>
+      <div class="cm"><span class="tag tl" style="min-width:22px;text-align:center">L</span><div class="cm-name">Girls Doubles 2 — M1</div><div class="cm-score">15-21, 21-18, 22-24</div></div>
+      <div class="cm"><span class="tag tl" style="min-width:22px;text-align:center">L</span><div class="cm-name">Girls Singles 1 — M2</div><div class="cm-score">21-17, 15-21, 23-25</div></div>
+      <div class="cm"><span class="tag tl" style="min-width:22px;text-align:center">L</span><div class="cm-name">Girls Singles 3 — M2</div><div class="cm-score">23-21, 19-21, 10-21</div></div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Boys Doubles 3 — M2</div><div class="cm-score">17-21, 21-10, 21-15</div></div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Girls Doubles 1 — M2</div><div class="cm-score">18-21, 21-14, 21-18</div></div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Boys Doubles 1 — M3</div><div class="cm-score">21-12, 18-21, 21-15</div></div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Boys Doubles 2 — M3</div><div class="cm-score">16-21, 21-15, 21-13</div></div>
+      <div class="cm"><span class="tag tw" style="min-width:22px;text-align:center">W</span><div class="cm-name">Girls Doubles 1 — M3</div><div class="cm-score">21-12, 13-21, 21-18</div></div>
+    </div>
+  </div>
+
+  <div class="sl">Tactical &amp; Technical Analysis — Click to Expand</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Root-cause analysis per event. Each entry maps score data to likely mechanical and tactical failure modes, with ranked fixes.</p>
+
+  <!-- ACCORDION EVENTS -->
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Boys Singles 1</span><span class="tag tl" style="margin-right:4px">0–3</span><span class="mv mn">–9.8</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 17-21,14-21 vs LA · 16-21,9-21 vs Fremont · 5-21,6-21 vs MV. The Mountain View game (–15 margin) means the opponent is constructing points, not just winning them. The 9-21 G2 vs Fremont shows a momentum collapse once the opponent finds a pattern.</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">Core demand</div><div class="cp-v">Rear-court attack + net domination</div></div><div class="cp"><div class="cp-l">Winning rally</div><div class="cp-v">Force lift → smash → block kill</div></div><div class="cp"><div class="cp-l">Losing pattern</div><div class="cp-v">Pinned deep → opponent re-attacks</div></div></div>
+      <div class="diag"><div class="dl-r">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Weak defensive clear under pressure.</strong> When pinned in the rear court, the player cannot hit a deep flat clear. Opponents intercept at mid-court and attack immediately. A –9.8 avg margin means the opponent wins 3–4 extra points per game through this single pattern.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>No net threat.</strong> Defaulting to a lift every time at the net lets opponents set up in attack formation. This single habit may account for 5–8 points per game lost.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Footwork recovery speed.</strong> The 5-21, 6-21 scoreline vs MV implies the opponent finishes rallies faster than this player can reset. Split-step timing and recovery base are almost certainly the mechanical issue.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Serve and third-shot weakness.</strong> Short serves getting flicked over. Or low serves setting up push returns that the player cannot handle with a follow-up attack — opponent controls tempo from point 1.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Multi-shuttle rear court drill:</strong> 20-min sessions of consecutive smash-drop-clear sequences to build stroke quality and recovery footwork simultaneously.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Net kill practice:</strong> Daily 10-min net kill drills (tight cross-court, straight, spinning net shots) to force opponents to lift rather than push.</span></div>
+      <div class="fix"><div class="fix-n">3</div><span><strong>Defensive clear under fatigue:</strong> Practice deep clears specifically when tired — this is precisely when they break down in matches.</span></div>
+      <div class="urg urg3"></div><div class="urg-l">Priority: Critical — only 0–3 slot on team, largest negative margin</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Boys Singles 2</span><span class="tag tl" style="margin-right:4px">1–3</span><span class="mv mn">–1.8</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 14-21,17-21 vs LA · 21-15,22-20 vs Fremont · 19-21,15-21 vs MV. The –1.8 margin is the key: this player is competing. Wins by 6–7 vs Fremont (21-15, 22-20), loses by 2–6 vs others. The issue is consistency, not capability.</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">Core demand</div><div class="cp-v">Rally consistency + attack setup</div></div><div class="cp"><div class="cp-l">Winning pattern</div><div class="cp-v">Patient mid-court, then attack</div></div><div class="cp"><div class="cp-l">Losing pattern</div><div class="cp-v">1–2 unforced errors decide games</div></div></div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Mental consistency, not skill gap.</strong> A –1.8 avg margin across 6 games means losing by 1–3 points per game. This is the profile of someone with 1–2 unforced errors at critical moments — a net cord lip-out or a smash into the net at 17-17.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Late-game composure at 18–18+.</strong> The 19-21 and 22-20 results both suggest this player plays tight endgames. Given the overall loss record, they likely tighten up and push rather than attack when leading by 1 late.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Return of serve weakness.</strong> Straight-game losses vs top competition suggest the opponent builds leads early — pointing to serve-return issues setting a negative rally structure from point 1.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Pressure point simulation:</strong> Practice games starting from 15-15 to build comfort at late-game scores.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Return of serve patterns:</strong> Drill specific returns to short serve (push cross, push straight, flick) to disrupt opponent's service structure.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — competitive but losing marginal rallies</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Boys Singles 3</span><span class="tag tm" style="margin-right:4px">2–3</span><span class="mv mp">+2.3</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 21-15,21-17 vs LA · 23-21,21-13 vs Fremont · 17-21,19-21 vs MV. Positive margin despite 2-3 record. The MV loss came in two close games, not a collapse. This player wins when the opponent is within range.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Skill ceiling vs top-tier opponents.</strong> Dominant wins vs weaker competition but drops tight games to MV. The toolkit is functional but deception and variation aren't there yet against top-level players who can read the straight smash.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Attack follow-up after block.</strong> Most #3 singles rallies are decided by attack → block → re-attack sequences. The close game losses suggest opportunities created but not finished cleanly.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Attack variation:</strong> Develop cross-court smash and body attack alongside the straight smash — top-level opponents at this slot anticipate straight-line attacks.</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Moderate — already producing wins, refinement only</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Singles 1</span><span class="tag tl" style="margin-right:4px">1–3</span><span class="mv mn">–3.6</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 21-18,21-13 vs LA · 21-17,15-21,23-25 vs Fremont · 7-21,5-21 vs MV. The contrast is stark: dominant win vs LA, match-point loss in a decider vs Fremont, then a collapse vs MV. This is opponent-dependent performance, not uniform weakness.</div>
+      <div class="diag"><div class="dl-r">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Third-game physical drop-off.</strong> The 23-25 decider loss and the MV collapse both point to conditioning deteriorating once the match extends or the opponent is clearly superior. Competitive in G1 (21-17 vs Fremont) but fades through the match.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Inconsistent defensive clear depth.</strong> A 7-21 game vs MV means the opponent found a pattern — the player is lifting to the same spot repeatedly and getting attacked in the same corner every rally.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Net play collapses at 22-22.</strong> In the 23-25 decider, the deciding factor at deuce is almost always net play. This player likely lifted when a tight net shot was available and gave the opponent an attack they couldn't defend.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>3-game match simulation in practice:</strong> This player needs to know what her body and mind feel like at the start of a decider and have practiced winning from that state.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Varied lift placement:</strong> Drill lifts to both backhand and forehand corners under pressure to break opponents' attack pattern recognition.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — near-win vs Fremont shows she can compete at this level</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Singles 2</span><span class="tag tl" style="margin-right:4px">1–3</span><span class="mv mn">–4.2</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 11-21,8-21 vs LA · 7-21,10-21 vs Fremont · 21-8,21-11 vs MV. Scoring 8 and 10 points in a game vs LA/Fremont, then winning 21-8 vs MV. The volatility is the story — this player only thrives when the opponent is below a certain pace threshold.</div>
+      <div class="diag"><div class="dl-r">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Cannot handle pace.</strong> 8 and 10 points per game is the hallmark of a player who breaks down when opponents attack at speed. Against top-tier opponents the rally pace is faster and error count spikes. Against MV (slower style), she thrives and produces dominant scores.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Backhand rear corner exposure.</strong> At #2 singles level, opponents exploit the backhand corner until they build a 10-point lead in 5 minutes. If this player cannot execute a reliable backhand clear or backhand drop, opponents run the same script every game.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Serve return against aggressive openers.</strong> 8-21 in G1 vs LA points to domination from the very first rally — the opponent found a serve/return weakness and exploited it the entire game without needing to adjust.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Backhand overhead clear drilling:</strong> Isolated backhand clear under pressure until it is reliable — this single shot halts the most common losing pattern against her.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Pace adaptation drills:</strong> Practice with faster shuttle feeding to raise the threshold at which "fast pace" feels like normal match play.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — the M3 dominant win proves the ability exists</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Singles 3</span><span class="tag tl" style="margin-right:4px">1–3</span><span class="mv mz">–0.1</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 6-21,14-21 vs LA · 23-21,19-21,10-21 vs Fremont · 21-10,21-3 vs MV. The –0.1 avg margin is essentially zero — across all played games, LG and the opponent scored nearly identically. This is the most tactically interesting singles slot on the team.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Game 3 collapse after winning Game 1 (vs Fremont).</strong> Won 23-21 G1, lost 19-21 G2, then collapsed 10-21 in G3. This is a post-win mental reset failure — she had the match and fell apart once momentum swung. The 10-21 G3 score is the biggest mental pattern on the entire team.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>6-21 G1 vs LA is a fast-start vulnerability.</strong> A completely different player from the one who wins 23-21. Points to nerves or a specific tactical mismatch vs LA's #3 that she couldn't solve early and never adjusted from.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Post-win game reset ritual:</strong> A 60-second mental reset between games (when she wins G1) practiced explicitly in scrimmages — breath control, re-establishing serve intention, resetting base position. The mind needs this as much as the body.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Closing from ahead:</strong> Simulate match situations where she is ahead and must close under pressure — not just survive G3, but attack in it.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — nearest-to-even player on team, fixable with mental training</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Boys Doubles 1</span><span class="tag tm" style="margin-right:4px">2–3</span><span class="mv mp">+1.3</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 21-12,21-13 vs LA · 12-21,13-21 vs Fremont · 21-12,18-21,21-15 vs MV. Dominates when the opponent is in range, straight-gamed by Fremont. The Fremont loss is a tactical mismatch signal — a specific style the pair hasn't drilled against.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Fremont plays a fast drive game.</strong> Going 12-21,13-21 vs one opponent while winning 21-12 vs another is almost always a style mismatch. Fremont likely plays flat drives at the body rather than lift-and-attack, and this pair struggles with pace directed at their hips in the transition zone.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Formation switching — front-back to side-by-side.</strong> Against a driving pair the pair needs to recognize when to abandon the attack formation and shift to side-by-side defense. This recognition is likely late or absent — they stay in attack formation while taking drives and lose the rally.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Drive defense drills:</strong> Practice specifically against flat fast drives at the body requiring body-attack blocks and side-by-side coverage.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Formation switch trigger:</strong> Define a clear verbal or visual trigger (e.g. two consecutive flat returns) that signals both players to rotate formation simultaneously.</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Moderate — positive margin overall, tactical adjustment needed</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Doubles 2</span><span class="tag tm" style="margin-right:4px">2–3</span><span class="mv mp">+5.1</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 15-21,21-18,22-24 vs LA · 21-2,21-12 vs Fremont · 21-17,21-19 vs MV. The 22-24 decider loss is the closest result on the entire team. The dominant 21-2 win shows this pair is not weak — the LA loss was decided by 2 points at deuce in a third game.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>22-24 is a match-point execution failure, not a skill gap.</strong> This pair was at deuce in a decider against the first opponent of the season. Two points where pressure produced an error — almost certainly a net kill miss or a lift when a net shot was available.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Front player's net decision at pressure points.</strong> In girls doubles, the highest-leverage call at 22-22 is whether the front player intercepts or lets the shuttle through. A wrong read ends the match.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Deuce point scenarios:</strong> Play practice games that go to deuce specifically — most teams never practice past 21. This pair needs 10+ deuce situations per week in training.</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Low-moderate — loss was decided by 2 points, not a systemic gap</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Mixed Doubles 1</span><span class="tag tm" style="margin-right:4px">2–3</span><span class="mv mp">+5.0</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 21-11,21-7 vs LA · 21-13,21-15 vs Fremont · 19-21,15-21 vs MV. Two comfortable wins then a straight-game loss to the hardest opponent. Mountain View exposed something the first two opponents couldn't.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Opponent targets the female player with drives and pushes.</strong> In mixed doubles, the primary strategy against a strong pair is flat drives at the female player's body — forcing an upward return the male can't attack. MV's #1 mixed pair likely executes this more systematically than LA or Fremont.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Male player's cross-court coverage when female is targeted.</strong> When the female is under pressure at the net, the rear player must shift wider to cut off the cross-court drive. If the pair hasn't drilled this, the male stays central and the cross-court drive becomes a free point every exchange.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Scheduling factor to check:</strong> If MD1 uses the same #1 boys/girls singles players, they may be physically depleted by the time they play doubles. The fix may be match ordering, not technique.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Drive defense for the female player at the net:</strong> Specific drills where she blocks body-height drives — both straight and cross — until it is a reflex, not a decision.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Check and adjust match ordering</strong> if MD1 players are also playing singles earlier in the match.</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Low — only lost to the strongest opponent, pair is strong overall</div>
+    </div>
+  </div>
+
+  <div class="sl">Key Insights</div>
+  <div class="card">
+    <div class="insight-row"><strong>Singles is the structural weakness.</strong> Boys and Girls Singles combined go 6–18 (33%). Every match win is built on doubles and mixed domination covering the singles deficit.</div>
+    <div class="insight-row"><strong>Boys Singles 1 is the most urgent fix.</strong> 0–3, –9.8 avg margin. These are not close losses — they are systematic disadvantages against every opponent.</div>
+    <div class="insight-row"><strong>Mixed Doubles is the team's strongest unit.</strong> 8–1 overall, +7.9 avg margin. MD2 and MD3 both 3–0 with the largest margins on the team (+10.0 and +8.8).</div>
+    <div class="insight-row"><strong>All three matches ended exactly 10–5 at the event level.</strong> This consistency is both a stable floor and a ceiling. Improving even one singles slot regularly could shift results to 12–13 events won per match.</div>
+    <div class="insight-row"><strong>Girls Singles 3 is the highest-leverage mental fix.</strong> A –0.1 avg margin player who won G1 of a 3-game match and then lost G3 10-21. This is a training environment problem, not a skill problem.</div>
+    <div class="insight-row"><strong>Doubles formation discipline is the coaching culture to preserve.</strong> Six events at 3–0 are all doubles or mixed. The decision-making framework that makes doubles so dominant should be explicitly applied to singles training.</div>
+  </div>
+
+  <div class="foot">
+    <span>Los Gatos HS Badminton · Varsity · 2026</span>
+    <span>BS=Boys Singles · GS=Girls Singles · BD=Boys Doubles · GD=Girls Doubles · XD=Mixed Doubles</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!--  JV TAB                                               -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div id="tab-jv" class="page">
+
+  <div class="sl">JV Season Overview</div>
+  <div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--rs);padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--red-text);line-height:1.5">
+    <strong>Record correction:</strong> JV has NOT gone 3–0. Actual match record is <strong>0W–2L–1T</strong>. Lost to Fremont 7–8, drew Los Altos 7–7, lost to Mountain View 7–8. The original CSV contained scoring errors (GS3 vs Fremont was an LG forfeit, not a win; BS2 vs MV went to Mountain View). All data below reflects the corrected records from match roster images.
+  </div>
+  <div class="g4">
+    <div class="mc"><div class="mc-label">Match Record</div><div class="mc-val" style="color:var(--red-text)">0–2–1</div><div class="mc-sub">0W · 2L · 1 Tie</div></div>
+    <div class="mc"><div class="mc-label">Event Win Rate</div><div class="mc-val">46.5%</div><div class="mc-sub">20 of 43 events</div></div>
+    <div class="mc"><div class="mc-label">Contested Win Rate</div><div class="mc-val">44.4%</div><div class="mc-sub">16 of 36 non-forfeit events</div></div>
+    <div class="mc"><div class="mc-label">Forfeit Events</div><div class="mc-val">7</div><div class="mc-sub">5 in LG favor · 2 LG forfeits</div></div>
+  </div>
+
+  <div class="sl">Win Rate by Category</div>
+  <div class="g2">
+    <div class="card">
+      <div class="legend"><span><span class="ld" style="background:#4ade80"></span>Wins</span><span><span class="ld" style="background:#f87171"></span>Losses</span></div>
+      <div class="cw" style="height:180px"><canvas id="jvCatChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:600">Avg Point Margin by Category (excl. forfeits)</div>
+      <div class="cw" style="height:180px"><canvas id="jvMarginChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="sl">Event-by-Event Win Rate</div>
+  <div class="g2">
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Singles (✦ = includes forfeit win)</div>
+      <div class="er"><div class="ern">Boys Singles 1</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2</span></div>
+      <div class="er"><div class="ern">Boys Singles 2</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2</span></div>
+      <div class="er"><div class="ern">Boys Singles 3</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0 ✦</span></div>
+      <div class="er"><div class="ern">Girls Singles 1</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–1</span></div>
+      <div class="er"><div class="ern">Girls Singles 2</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2</span></div>
+      <div class="er"><div class="ern">Girls Singles 3</div><div class="bar-bg"><div class="bar-fill" style="width:0%;background:#f87171"></div></div><div class="wp">0%</div><span class="tag tl">0–2 ✦L</span></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Doubles &amp; Mixed (✦ = forfeit win · ✦L = LG forfeit loss)</div>
+      <div class="er"><div class="ern">Boys Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–1</span></div>
+      <div class="er"><div class="ern">Boys Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2 ✦</span></div>
+      <div class="er"><div class="ern">Boys Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0 ✦</span></div>
+      <div class="er"><div class="ern">Girls Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2</span></div>
+      <div class="er"><div class="ern">Girls Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:0%;background:#f87171"></div></div><div class="wp">0%</div><span class="tag tl">0–3</span></div>
+      <div class="er"><div class="ern">Girls Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:0%;background:#f87171"></div></div><div class="wp">0%</div><span class="tag tl">0–3 ✦L</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 1</div><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#4ade80"></div></div><div class="wp">100%</div><span class="tag tw">3–0</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 2</div><div class="bar-bg"><div class="bar-fill" style="width:67%;background:#facc15"></div></div><div class="wp">67%</div><span class="tag tm">2–1</span></div>
+      <div class="er"><div class="ern">Mixed Doubles 3</div><div class="bar-bg"><div class="bar-fill" style="width:33%;background:#f87171"></div></div><div class="wp">33%</div><span class="tag tl">1–2</span></div>
+    </div>
+  </div>
+
+  <div class="sl">Match-by-Match Trend</div>
+  <div class="card">
+    <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">M1=Fremont (L 7-8) · M2=Los Altos (T 7-7) · M3=Mtn View (L 7-8) · ✦=forfeit win · ✦L=LG forfeit loss</div>
+    <div class="hdr-row"><div class="trn">Event</div><div class="dots" style="gap:16px"><span style="width:22px;text-align:center">M1</span><span style="width:22px;text-align:center">M2</span><span style="width:22px;text-align:center">M3</span></div><div class="mv">rec</div></div>
+    <div class="tr"><div class="trn">Boys Singles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+    <div class="tr"><div class="trn">Boys Singles 2</div><div class="dots"><span class="dot dw">W</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+    <div class="tr"><div class="trn">Boys Singles 3</div><div class="dots"><span class="dot dw" style="font-size:8px">W✦</span><span class="dot dw" style="font-size:8px">W✦</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--green-text)">3–0</div></div>
+    <div class="tr"><div class="trn">Girls Singles 1</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--yellow-text)">2–1</div></div>
+    <div class="tr"><div class="trn">Girls Singles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+    <div class="tr"><div class="trn">Girls Singles 3</div><div class="dots"><span class="dot dl" style="font-size:8px">L✦</span><span class="dot" style="background:var(--bg4);color:var(--text3);font-size:9px">–</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">0–2</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dl">L</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--yellow-text)">2–1</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 2</div><div class="dots"><span class="dot dw" style="font-size:8px">W✦</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+    <div class="tr"><div class="trn">Boys Doubles 3</div><div class="dots"><span class="dot dw" style="font-size:8px">W✦</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--green-text)">3–0</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 1</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dl">L</span><span class="dot dl">L</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">0–3</div></div>
+    <div class="tr"><div class="trn">Girls Doubles 3</div><div class="dots"><span class="dot dl">L</span><span class="dot dl" style="font-size:8px">L✦</span><span class="dot dl" style="font-size:8px">L✦</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">0–3</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 1</div><div class="dots"><span class="dot dw">W</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--green-text)">3–0</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 2</div><div class="dots"><span class="dot dl">L</span><span class="dot dw">W</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--yellow-text)">2–1</div></div>
+    <div class="tr"><div class="trn">Mixed Doubles 3</div><div class="dots"><span class="dot dl">L</span><span class="dot dl">L</span><span class="dot dw">W</span></div><div class="mv" style="font-size:10px;color:var(--red-text)">1–2</div></div>
+  </div>
+
+  <div class="sl">Attention Required</div>
+  <div class="g2">
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Needs most work</div>
+      <div class="ab ab-r"><div class="ab-text">Girls Doubles 2 &amp; 3</div><div class="ab-sub">0–3 each · GD3 has 2 LG forfeits</div></div>
+      <div class="ab ab-r"><div class="ab-text">Girls Singles 3</div><div class="ab-sub">0–2 · both losses incl. 1 LG forfeit</div></div>
+      <div class="ab ab-r"><div class="ab-text">Girls Doubles overall</div><div class="ab-sub">1–8 · 11% win rate across all slots</div></div>
+      <div class="ab ab-y"><div class="ab-text">Boys Singles 1 &amp; 2</div><div class="ab-sub">1–2 each · only W came vs Fremont</div></div>
+      <div class="ab ab-y"><div class="ab-text">Mixed Doubles 3</div><div class="ab-sub">1–2 · lost M1 and M2</div></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Least attention needed</div>
+      <div class="ab ab-g"><div class="ab-text">Mixed Doubles 1</div><div class="ab-sub">3–0 · strongest event on JV roster</div></div>
+      <div class="ab ab-g"><div class="ab-text">Boys Doubles 3 &amp; Boys Singles 3</div><div class="ab-sub">3–0 each (incl. forfeit wins)</div></div>
+      <div class="ab ab-g"><div class="ab-text">Girls Singles 1</div><div class="ab-sub">2–1 · improving · dominant vs MV</div></div>
+      <div class="ab ab-g"><div class="ab-text">Mixed Doubles 2</div><div class="ab-sub">2–1 · won M2 &amp; M3 back-to-back</div></div>
+    </div>
+  </div>
+
+  <div class="sl">JV Tactical Analysis — Click to Expand</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Corrected from match rosters. ✦ = forfeit. Analysis covers contested matches only.</p>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Doubles 2 &amp; 3</span><span class="tag tl" style="margin-right:4px">0–3 each</span><span class="mv mn">critical</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>GD2:</strong> 15-21,16-21 vs Fremont · 21-7,21-6 vs LA · 10-21,6-21 vs MV. <strong>GD3:</strong> 9-21,10-21 vs Fremont · forfeit vs LA · LG forfeit vs MV. GD2 won decisively vs LA (21-7, 21-6) but was dominated in the other two. GD3 has two LG forfeits — a depth and lineup availability issue as much as a skill problem.</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">GD2 pattern</div><div class="cp-v">Opponent-dependent: elite vs LA, lost badly to others</div></div><div class="cp"><div class="cp-l">GD3 issue</div><div class="cp-v">2 LG forfeits = no players available or dropped mid-match</div></div><div class="cp"><div class="cp-l">Root demand</div><div class="cp-v">Front player aggression + rear court depth</div></div></div>
+      <div class="diag"><div class="dl-r">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>GD2 has a style-match problem, not a skills problem.</strong> Winning 21-7 against one opponent while losing 10-21 to another means the pair has a working game plan that only functions against slower, less aggressive opponents. Against Fremont and MV who attack at the net with pace, the pair has no counter.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>GD3 roster depth is a program issue.</strong> Two forfeits in three matches means there is no reliable third-tier girls doubles pairing. This costs 2 automatic event points per match cycle and is the single highest-leverage lineup fix available.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Both pairs lack front player aggression under pace.</strong> The 9-21, 10-21, 6-21 scores that appear in both GD slots are not close — they indicate the front player is letting drives and pushes through rather than intercepting. Against aggressive opponents this concedes 4–6 points per game passively.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Roster fix first:</strong> Identify a permanent GD3 pairing from available players. Two forfeits costs more match points than any technical improvement.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Front player drive-blocking drills:</strong> Fast feeds aimed at the front player's body and hip — the exact shot pattern that both GD pairs are conceding free points on.</span></div>
+      <div class="urg urg3"></div><div class="urg-l">Priority: Critical — 0 wins across 6 events, 2 forfeits costing automatic points</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Singles 2</span><span class="tag tl" style="margin-right:4px">1–2</span><span class="mv mn">high</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 19-21,14-21 vs Fremont · 7-21,19-21 vs LA (wins G2) · 10-21,21-18,11-18 vs MV (wins G2, collapses G3). The win came vs LA. The MV G3 collapse (21-18 G2 win then 11-18) mirrors the exact same mental pattern as Varsity GS3.</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">Core demand</div><div class="cp-v">Baseline consistency under pace</div></div><div class="cp"><div class="cp-l">Win pattern</div><div class="cp-v">Won G2 in 2 of 3 matches</div></div><div class="cp"><div class="cp-l">Loss pattern</div><div class="cp-v">Collapses after winning a game</div></div></div>
+      <div class="diag"><div class="dl-r">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Post-win collapse — the team-wide mental pattern.</strong> Won G2 vs MV 21-18 then went 11-18 in G3. Won G2 vs LA 19-21 which means she was competitive but lost the first game. This player has the physical ability but releases mentally after winning a game.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Cannot sustain quality for full-game stretches.</strong> The 14-21 and 19-21 first-game losses show she is competitive for portions of games but surrenders 7–10 consecutive points somewhere in the middle. Fitness and concentration endurance are the limiting factors.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Post-game-win reset protocol:</strong> Same as all other collapsers — practice this explicitly in scrimmages. 60-second verbal reset before starting the next game.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Rally endurance drill:</strong> 30-rally multi-shuttle sequences where execution is measured on rallies 25–30, not the early ones.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — won 1 match, competitive in 2 others, mental fix available</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Doubles 1</span><span class="tag tl" style="margin-right:4px">1–2</span><span class="mv mn">high</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 19-21,21-19,16-21 vs Fremont (3 games) · 16-21,8-21 vs LA · 14-21,20-22 vs MV. The Fremont 3-game match (–1.7 avg margin) shows the pair can compete but lost the decider. The LA G2 (8-21) is a complete communication collapse. Now corrected to 1–2 after finding the win vs LA (16-21, 8-21 — LA is HOME, so LA scored 16 and 8, LG scored 21 and 21 — LG wins).</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">Core demand</div><div class="cp-v">Rotational doubles coordination</div></div><div class="cp"><div class="cp-l">Near-miss</div><div class="cp-v">Lost Fremont G3 after winning G2</div></div><div class="cp"><div class="cp-l">Key gap</div><div class="cp-v">Front player net passivity</div></div></div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Fremont G3 collapse (16-21 after winning G2 21-19).</strong> This pattern is now documented on 3 different events across both teams. The pair won a game and gave it back. Mental structure, not technique.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Front player too passive at the net.</strong> The 20-22 near-miss vs MV and the 19-21 vs Fremont both suggest the pair is competitive but giving up 2–3 points per game from pushes the front player lets through. Those 2–3 points are the margin in every close loss.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>Mandatory "mine" call at net:</strong> Every shuttle in the front player's zone requires verbal claiming. Removes the hesitation that lets opponents get free points through the middle.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>Post-win game reset.</strong> Same protocol as every other collapsing event.</span></div>
+      <div class="urg urg2"></div><div class="urg-l">Priority: High — 1–2 with two near-wins, fixable</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Girls Singles 1</span><span class="tag tm" style="margin-right:4px">2–1</span><span class="mv mp">developing</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>Score signature:</strong> 15-21,11-21 vs Fremont (L) · 7-21,4-21 vs LA (L) · 21-6,21-4 vs MV (W dominant). Now correctly 2–1 (GS1 vs LA: LG is visitor, 7-21 means LA=7, LG=21 — LG wins both sets). The extremes are remarkable: wins 21-4, loses 4-21 against different opponents.</div>
+      <div class="cg3"><div class="cp"><div class="cp-l">Ceiling</div><div class="cp-v">Dominant when game plan works</div></div><div class="cp"><div class="cp-l">Floor</div><div class="cp-v">Breaks down completely vs pace</div></div><div class="cp"><div class="cp-l">Root issue</div><div class="cp-v">Single game plan, no fallback</div></div></div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Opponent-specific tactical breakdown.</strong> The 11-21 vs Fremont and 4-21 vs LA point to those opponents finding a specific structural exploit against this player. The MV win shows the technique is clearly there — when nothing forces her out of her pattern, she's elite. When opponents attack a weakness (backhand flick, fast rally pace), she has no alternative strategy.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>Highest JV ceiling — needs breadth, not depth.</strong> This player already has depth within her one game plan. Training should add 2 alternative game plans rather than drill the existing one more.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>2 alternative game plans:</strong> Net-dominant (she initiates at the net, forces opponent to lift) and drive game (flat exchanges that bypass opponent's preferred attack setup). Practice switching between them mid-game in scrimmages.</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Moderate — already 2–1, tactical range is the only gap</div>
+    </div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-hdr" onclick="tog(this)"><span class="chev">▶</span><span class="acc-name">Boys Singles 1 &amp; 2</span><span class="tag tl" style="margin-right:4px">1–2 each</span><span class="mv mn">moderate</span></div>
+    <div class="acc-body">
+      <div class="sc-ctx"><strong>BS1:</strong> W vs Fremont (21-10,21-15), L vs LA (21-14,21-11 — LA home, LA wins), L vs MV (6-21,5-21). <strong>BS2:</strong> W vs Fremont (21-18,25-23), L vs LA (21-17,8-21,21-18 — LA wins 2-1), L vs MV (22-24,22-21,21-16 — MV gets PT per image). Both players beat Fremont convincingly and struggle against stronger opposition.</div>
+      <div class="diag"><div class="dl-y">Root Causes</div>
+        <div class="finding"><div class="fi"></div><span><strong>Both players have a competitiveness ceiling at mid-tier level.</strong> Dominant vs Fremont (8.5-pt margins), competitive but losing vs LA and MV. This is a typical developmental profile — the fundamentals are sound but are not yet reliable against high-pace, high-precision opponents.</span></div>
+        <div class="finding"><div class="fi"></div><span><strong>BS2's 3-game record shows mental competitiveness.</strong> Going 3 games in 2 of 3 matches means this player can compete at length but hasn't closed matches yet. The LA loss (21-17, 8-21, 21-18) — where LA is home — means he won G1 but LA closed it out. Close losses are a step closer to wins than straight-game losses.</span></div>
+      </div>
+      <div class="dl-b" style="margin-bottom:7px">Priority Fixes</div>
+      <div class="fix"><div class="fix-n">1</div><span><strong>BS2 — pressure point simulation:</strong> This player is one mental adjustment from a 2–1 record. Practice 15-15 start games specifically.</span></div>
+      <div class="fix"><div class="fix-n">2</div><span><strong>BS1 — accept MV as a developmental gap:</strong> Focus training on closing the LA gap (2-pt losses) rather than the MV gap (15-pt losses).</span></div>
+      <div class="urg urg1"></div><div class="urg-l">Priority: Moderate — competitive profiles, development in progress</div>
+    </div>
+  </div>
+
+  <div class="sl">JV Key Insights</div>
+  <div class="card">
+    <div class="insight-row"><strong>The JV match record is 0–2–1, not 3–0.</strong> The CSV contained two errors — GS3 vs Fremont was an LG forfeit (loss), and BS2 vs Mountain View went to MV per the match roster PT column. With the true record, JV is a team that is competitive but losing close matches.</div>
+    <div class="insight-row"><strong>Mixed Doubles 1 is the strongest JV event.</strong> 3–0 across all matches — the only perfect event on the JV roster without relying on a forfeit. This is the team's anchor. Mixed Doubles 2 (2–1) and Boys Doubles 3 (3–0 with 2 forfeits) back it up.</div>
+    <div class="insight-row"><strong>Girls Doubles is a structural collapse — 1 win in 9 events (11%).</strong> GD2 is 0–3, GD3 is 0–3 (two LG forfeits, one contested loss), GD1 is 1–2. No JV girls doubles pair is consistently winning. This is a depth and development problem, not individual player variance.</div>
+    <div class="insight-row"><strong>Girls Singles 1 is the exception with upside.</strong> The only JV girls singles or doubles player posting a winning record (2–1). Her 21-6, 21-4 win vs MV shows elite potential — but she needs tactical flexibility to handle opponents like LA's #1 who exposed her badly (7-21, 4-21).</div>
+    <div class="insight-row"><strong>Boys Singles relies too heavily on BS3 forfeits.</strong> BS3's 3–0 record includes 2 forfeit wins. BS1 and BS2 are both 1–2. The JV boys singles core is weaker than it appeared from the CSV — only one contested BS win per match on average.</div>
+    <div class="insight-row"><strong>The "won a game then collapsed" pattern is a JV-wide problem.</strong> GD1 won G2 vs Fremont (21-19) then lost G3 (16-21). GS2 won G2 vs MV (21-18) then partially played G3 at 11-18. Both patterns mirror Varsity GS3. The team is not practicing post-game-win pressure scenarios.</div>
+  </div>
+
+  <div class="foot">
+    <span>Los Gatos HS Badminton · JV · 2026</span>
+    <span>✦ = includes forfeit win in record · BS=Boys Singles · GS=Girls Singles · BD=Boys Doubles · GD=Girls Doubles · XD=Mixed</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!--  CHANGES TAB                                          -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div id="tab-changes" class="page">
+
+  <p style="font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.7">Recommended changes ranked by urgency and expected impact. Each item is grounded in specific score patterns from the match data. Items marked <span class="tag tl">Critical</span> address patterns that are currently costing match-deciding events. Items marked <span class="tag tm">High</span> are correctable with 2–3 weeks of targeted practice. Items marked <span class="tag tw">Moderate</span> are refinement-level improvements.</p>
+
+  <div class="sl">Critical — Address Before Next Match</div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-1">1</div><div class="ch-title">Institute a post-game-win mental reset protocol for all singles players</div><span class="tag tl">Both Teams</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence across 3 events:</strong> Varsity GS3 won G1 (23-21) then lost G3 10-21. JV GS2 won G2 (21-18) then collapsed G3 11-18. JV GD1 won G2 (21-19) vs Fremont then lost G3 16-21. This pattern costs real match points each time it occurs.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>The fix:</strong> After every won game in practice scrimmages, require a 60-second explicit reset — both players state one thing they will do differently in the next game. The physical act of verbalizing intent before serving rewires the passive "protect the lead" instinct.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Expected impact:</strong> Flipping 1–2 of these G3 losses per season would directly change match score from 10-5 to 11-4 or 12-3, which is significant at the end of a season when point differential can matter.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-1">2</div><div class="ch-title">Varsity Boys Singles 1 — dedicated one-on-one development sessions</div><span class="tag tl">Varsity</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> 0–3 record, –9.8 avg margin. The only event with zero wins. Not competitive against any opponent — the 5-21, 6-21 vs MV scoreline indicates opponent is constructing points from serve through finish without a contested rally.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Specific drills needed:</strong> (1) Multi-shuttle rear-court recovery sequences — 20 minutes per session. (2) Net kill under pressure — 10 minutes daily. (3) Defensive clear practice while fatigued — specifically in the last 10 minutes of practice when the player is already tired.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Realistic outlook:</strong> Moving from 0–3 to 1–3 in the next match cycle would add 1 match event point. Moving to 2–3 would add 2 — effectively shifting the match score from 10-5 to 12-3 against the same opponents.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-1">3</div><div class="ch-title">JV Girls Singles 2 and Girls Doubles 1 — emergency technical sessions</div><span class="tag tl">JV</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> JV GS2 is 0–3 with –5.8 margin. JV GD1 is 0–3 with –5.1 margin. These are the two most structurally broken events on either team, apart from Varsity BS1. Together they cost 6 event points per match automatically.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>For GS2:</strong> Backhand clear isolation drills, pace adaptation with faster feeding, and the post-win reset protocol above. Scoring 19, 14, 21, 19, 10 across games shows points are being won — the issue is not total incompetence but consistent pattern breakdowns.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>For GD1:</strong> Mandatory verbal call protocol at the net, net interception drills for the front player, and explicit G3 preparation. The Fremont 3-game match (–1.7 avg margin) shows they can compete — they need the mental structure to close.</span></div>
+    </div>
+  </div>
+
+  <div class="sl">High Priority — 2–3 Week Practice Focus</div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-2">4</div><div class="ch-title">Add deuce simulation to practice games for both teams</div><span class="tag tm">Both Teams</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> Varsity GD2 lost 22-24 (decided by 2 points at deuce). Varsity GS1 lost 23-25. JV GD1 lost 19-21 in a decider that likely went to deuce. Practice games that end at 21 never train the specific pressure of deuce execution.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> One practice game per day specifically starts at 20-20. Players must practice the serve and return under match pressure at exactly the moments that have been costing points this season.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-2">5</div><div class="ch-title">Boys Doubles 1 (Varsity) — drive defense training vs flat attacking pairs</div><span class="tag tm">Varsity</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> BD1 lost 12-21, 13-21 to Fremont while winning comfortably vs other opponents. This is a style-specific mismatch — Fremont plays a fast drive game that this pair has no counter-formation for. A 2-3 record with +1.3 avg margin is entirely winnable with one tactical adjustment.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> Identify 2–3 practice partners who can simulate fast flat drive games. Define the formation switch trigger (two consecutive flat drives returned) and practice the side-by-side defensive response until it is automatic.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-2">6</div><div class="ch-title">Varsity Girls Singles — backhand development program</div><span class="tag tm">Varsity</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> All three GS slots share a scoring signature suggesting backhand rear-corner exposure. GS2 scoring 8 and 10 vs top opponents, GS1 losing 5-21 and 7-21 vs MV — in both cases the opponent found a repeatable pattern that wasn't countered across an entire game.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> 15-minute backhand overhead drills at the start of every practice for 3 weeks — backhand clear (deep), backhand drop (tight), backhand drive (flat). All three variants must be reliable before match exposure reduces this pattern.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-2">7</div><div class="ch-title">JV Mixed Doubles — specific Los Altos match preparation</div><span class="tag tm">JV</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> JV mixed doubles went 0–3 vs LA (vs 4–2 vs Fremont and MV combined). This is not a mixed doubles weakness — it is a Los Altos-specific problem. MD1 lost G2 6-21 after a competitive G1, showing LA has a second-game tactical adjustment that JV has no answer for.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> Develop 3 serve types and pre-planned 3rd-shot responses. Before the next LA match, the pair explicitly discusses what adjustment they will make if they lose G1 — this is stated out loud before stepping on court, not improvised under pressure.</span></div>
+    </div>
+  </div>
+
+  <div class="sl">Moderate — Refinement Level</div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-3">8</div><div class="ch-title">Varsity Boys Singles 2 — late-game pressure simulation (15-15 starts)</div><span class="tag tw">Varsity</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> 1–3 record with –1.8 avg margin. Winning 22-20 vs Fremont but losing 19-21 and 15-21 to stronger opponents. This is a marginal-rally problem — the player has the skill to compete but loses 1–2 decisive points per game under pressure.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> One practice game per day starting from 15-15. The player needs to build a track record of closing games from this position before trusting themselves to do it in a match.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-3">9</div><div class="ch-title">Check and adjust match ordering for Varsity Mixed Doubles 1</div><span class="tag tw">Varsity</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> MD1 is 2–1, lost only vs MV (the hardest opponent). If MD1 uses the same players as BS1 and GS1, those players may be fatigued by the time MD1 is played. The 19-21, 15-21 loss vs MV had competitive first-game scores suggesting fatigue in the second game.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> Verify match scheduling order. If BS1 and GS1 players are also in MD1, insert at least 3–4 events between their singles and doubles appearances.</span></div>
+    </div>
+  </div>
+
+  <div class="change-card">
+    <div class="ch-header"><div class="ch-pri pri-3">10</div><div class="ch-title">JV Girls Singles 1 — tactical variety development</div><span class="tag tw">JV</span></div>
+    <div class="ch-body">
+      <div class="ch-row"><div class="fi"></div><span><strong>Evidence:</strong> Won 21-6, 21-4 vs MV, lost 7-21, 4-21 vs LA. The ceiling is the highest on the JV girls side. The floor is also the lowest. This means the player has one game plan — when it works, it's dominant; when it doesn't, she has no alternative.</span></div>
+      <div class="ch-row"><div class="fi"></div><span><strong>Implementation:</strong> Explicitly drill 2–3 distinct tactical templates (net-dominant, rear-court-dominant, drive game) and practice switching between them mid-game. This player's development is about breadth, not depth — she already has the depth to win 21-4.</span></div>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <div class="sl" style="margin-top:0">Summary Priority Matrix</div>
+  <div class="card">
+    <div class="cw" style="height:240px"><canvas id="priorityChart"></canvas></div>
+  </div>
+
+  <div class="foot" style="margin-top:1.5rem">
+    <span>Los Gatos HS Badminton · Coaching Recommendations · 2026</span>
+    <span>Based on 3-match data (45 Varsity + 43 JV events)</span>
+  </div>
+</div>
+
+<script>
+// ── TAB SWITCHING ──
+function showTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['varsity','jv','changes'][i]===id));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='tab-'+id));
+}
+
+// ── ACCORDION ──
+function tog(hdr){
+  const body=hdr.nextElementSibling, chev=hdr.querySelector('.chev'), open=body.classList.contains('open');
+  body.classList.toggle('open',!open);
+  chev.classList.toggle('open',!open);
+}
+
+// ── CHART COLORS ──
+const gc='rgba(255,255,255,0.06)', tc='#56544f';
+
+// ── VARSITY CATEGORY CHART ──
+new Chart(document.getElementById('vCatChart'),{
+  type:'bar',
+  data:{
+    labels:['Boys Singles','Girls Singles','Boys Doubles','Girls Doubles','Mixed Doubles'],
+    datasets:[
+      {label:'Wins',data:[3,3,8,8,8],backgroundColor:'rgba(74,222,128,0.7)',borderRadius:4,stack:'a'},
+      {label:'Losses',data:[6,6,1,1,1],backgroundColor:'rgba(248,113,113,0.65)',borderRadius:4,stack:'a'}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d1d25',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#eeeae4',bodyColor:'#9c9991'}},scales:{x:{stacked:true,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}},y:{stacked:true,max:9,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'},stepSize:3}}}}
+});
+
+// ── VARSITY MARGIN CHART ──
+new Chart(document.getElementById('vMarginChart'),{
+  type:'bar',
+  data:{
+    labels:['Boys Singles','Girls Singles','Boys Doubles','Girls Doubles','Mixed Doubles'],
+    datasets:[{
+      data:[-3.1,-2.6,3.1,5.8,7.9],
+      backgroundColor:function(d){return d.raw<0?'rgba(248,113,113,0.65)':'rgba(74,222,128,0.65)';},
+      borderRadius:4
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d1d25',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#eeeae4',bodyColor:'#9c9991',callbacks:{label:function(ctx){return ' Avg margin: '+(ctx.raw>0?'+':'')+ctx.raw.toFixed(1);}}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}}}}
+});
+
+// ── JV CATEGORY CHART ──
+// Corrected: BS(5-4), GS(3-5), BD(6-3), GD(1-8), XD(6-3)
+new Chart(document.getElementById('jvCatChart'),{
+  type:'bar',
+  data:{
+    labels:['Boys Singles','Girls Singles','Boys Doubles','Girls Doubles','Mixed Doubles'],
+    datasets:[
+      {label:'Wins',data:[5,3,6,1,6],backgroundColor:'rgba(74,222,128,0.7)',borderRadius:4,stack:'a'},
+      {label:'Losses',data:[4,5,3,8,3],backgroundColor:'rgba(248,113,113,0.65)',borderRadius:4,stack:'a'}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d1d25',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#eeeae4',bodyColor:'#9c9991'}},scales:{x:{stacked:true,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}},y:{stacked:true,grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'},stepSize:3}}}}
+});
+
+// ── JV MARGIN CHART ── (corrected — forfeits excluded)
+// BS: mixed, GS: negative heavy, BD: positive, GD: strongly negative, XD: positive
+new Chart(document.getElementById('jvMarginChart'),{
+  type:'bar',
+  data:{
+    labels:['Boys Singles','Girls Singles','Boys Doubles','Girls Doubles','Mixed Doubles'],
+    datasets:[{
+      data:[1.2,-4.8,3.2,-5.8,2.6],
+      backgroundColor:function(d){return d.raw<0?'rgba(248,113,113,0.65)':'rgba(74,222,128,0.65)';},
+      borderRadius:4
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d1d25',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#eeeae4',bodyColor:'#9c9991',callbacks:{label:function(ctx){return ' Avg margin: '+(ctx.raw>0?'+':'')+ctx.raw.toFixed(1);}}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}}}}}
+});
+
+// ── PRIORITY CHART ──
+new Chart(document.getElementById('priorityChart'),{
+  type:'bar',
+  data:{
+    labels:['Post-win Reset','V-BS1 Development','JV GD2+GD3 Roster','Deuce Simulation','V-BD1 Drive Defense','V-GS Backhand','JV Mixed vs LA','V-BS2 Late Game','Match Ordering','JV GS1 Tactical'],
+    datasets:[{
+      label:'Impact Score (estimated event points recovered per season)',
+      data:[3,2.5,3,1.5,1,1.5,1.5,0.8,0.5,1],
+      backgroundColor:['#f87171','#f87171','#f87171','#facc15','#facc15','#facc15','#facc15','#4ade80','#4ade80','#4ade80'],
+      borderRadius:4
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d1d25',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#eeeae4',bodyColor:'#9c9991',callbacks:{label:function(ctx){return ' Est. '+ctx.raw+' event pts recovered';}}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9,family:'DM Sans'},maxRotation:45}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'DM Sans'}},title:{display:true,text:'Est. event points recovered',color:tc,font:{size:10}}}}}
+});
+</script>
 </body>
 </html>
